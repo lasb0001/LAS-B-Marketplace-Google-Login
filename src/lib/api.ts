@@ -310,8 +310,11 @@ return {
         .limit(200);
 
       if (error) throw makeError(error.message);
-      return { data: { deposits: (data || []).map(mapDeposit) } };
-    }
+      return {
+  data: {
+    deposits: (data || []).map(mapDeposit),
+  },
+};
 
     throw makeError(`Unknown GET route: ${url}`, 404);
   },
