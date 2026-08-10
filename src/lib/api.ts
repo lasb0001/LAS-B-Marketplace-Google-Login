@@ -329,8 +329,7 @@ export const api = {
           status: 'Pending',
           transfer_confirmed: false,
         })
-        .select('*')
-        .single();
+        .select('*');
 
       if (error) throw makeError(error.message);
       return { data: { deposit: mapDeposit(data) } };
@@ -367,6 +366,12 @@ export const api = {
         .select('*');
 
       if (orderError) throw makeError(orderError.message);
+
+      const row = Array.isArray(order) ? order[0] : order;
+
+         if (!row) {
+      if makeError('Order was created but could not be read back.');
+}
 
       const newBalance = balance - amount;
 
@@ -447,8 +452,7 @@ export const api = {
         })
         .eq('id', depositId)
         .eq('user_id', user.id)
-        .select('*')
-        .single();
+        .select('*');
 
       if (error) throw makeError(error.message);
       return { data: { deposit: mapDeposit(data) } };
@@ -495,8 +499,7 @@ if (approveMatch) {
           processed_at: new Date().toISOString(),
         })
         .eq('id', depositId)
-        .select('*')
-        .single();
+        .select('*');
 
       if (error) throw makeError(error.message);
       return { data: { ok: true, deposit: mapDeposit(data) } };
@@ -513,8 +516,7 @@ if (approveMatch) {
         .from('orders')
         .update({ status: body.status || 'Pending' })
         .eq('id', orderMatch[1])
-        .select('*')
-        .single();
+        .select('*');
 
       if (error) throw makeError(error.message);
       return { data: { ok: true, order: mapOrder(data) } };
