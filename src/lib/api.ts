@@ -463,30 +463,36 @@ export const api = {
       const currentBalance = await getBalance(profile.id);
       const newBalance = currentBalance + amount;
 
-      const { data: updatedWallet, error: walletError } = await supabase
+      const { data: updatedWallets, error: walletError } = await supabase
   .from('wallets')
   .update({
     balance: newBalance,
     updated_at: new Date().toISOString(),
   })
   .eq('user_id', profile.id)
-  .select('user_id, balance')
-  .single();
+  .select('user_id, balance');
 
 if (walletError) {
   throw makeError(walletError.message);
 }
 
-if (!updatedWallet) {
-  throw makeError('Customer wallet could not be updated.');
+if (!updatedWallets || updatedWallets.length === 0) {
+  throw makeError(
+    'Customer wallet was not found. No wallet row was updated.'
+  );
+}
+
+if (updatedWallets.length > 1) {
+  throw makeError(
+    'Customer has multiple wallet records. Please fix the duplicate wallets.'
+  );
 }
 
 return {
   data: {
-    balance: Number(updatedWallet.balance),
+    balance: Number(updatedWallets[0].balance),
   },
 };
-    }
 
     throw makeError(`Unknown POST route: ${url}`, 404);
   },
