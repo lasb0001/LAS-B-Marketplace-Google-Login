@@ -488,11 +488,12 @@ if (updatedWallets.length > 1) {
   );
 }
 
-return {
-  data: {
-    balance: Number(updatedWallets[0].balance),
-  },
-};
+      return {
+        data: {
+          balance: Number(updatedWallet.balance),
+        },
+      };
+    }
 
     throw makeError(`Unknown POST route: ${url}`, 404);
   },
