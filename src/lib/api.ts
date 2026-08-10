@@ -370,7 +370,7 @@ export const api = {
       const row = Array.isArray(order) ? order[0] : order;
 
          if (!row) {
-      if makeError('Order was created but could not be read back.');
+      throw makeError('Order was created but could not be read back.');
 }
 
       const newBalance = balance - amount;
