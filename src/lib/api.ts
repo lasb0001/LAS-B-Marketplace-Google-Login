@@ -442,62 +442,27 @@ export const api = {
 
     const approveMatch = url.match(/^\/api\/admin\/deposits\/([^/]+)\/approve$/);
 
-    if (approveMatch) {
-      if (!isAdmin(user.email)) {
-        throw makeError('Admin access required', 403);
-      }
+if (approveMatch) {
+  if (!isAdmin(user.email)) {
+    throw makeError('Admin access required', 403);
+  }
 
-      const depositId = approveMatch[1];
+  const depositId = approveMatch[1];
 
-      const { data: deposit, error: readError } = await supabase
-        .from('deposits')
-        .select('*')
-        .eq('id', depositId)
-        .single();
+  const { data, error } = await supabase.rpc(
+    'admin_approve_deposit_live',
+    { p_deposit_id: depositId }
+  );
 
-      if (readError) throw makeError(readError.message);
-      if (deposit.status === 'Approved') {
-        return { data: { ok: true, deposit: mapDeposit(deposit) } };
-      }
+  if (error) throw makeError(error.message);
 
-      const { data: wallet, error: walletReadError } = await supabase
-        .from('wallets')
-        .select('balance,total_deposits')
-        .eq('user_id', deposit.user_id)
-        .maybeSingle();
-
-      if (walletReadError) throw makeError(walletReadError.message);
-      if (!wallet) throw makeError('Customer wallet not found.');
-
-      const newBalance = Number(wallet.balance || 0) + Number(deposit.amount || 0);
-      const newTotal = Number(wallet.total_deposits || 0) + Number(deposit.amount || 0);
-
-      const { error: walletError } = await supabase
-        .from('wallets')
-        .update({
-          balance: newBalance,
-          total_deposits: newTotal,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', deposit.user_id);
-
-      if (walletError) throw makeError(walletError.message);
-
-      const { data: updated, error: updateError } = await supabase
-        .from('deposits')
-        .update({
-          status: 'Approved',
-          confirmed_at: new Date().toISOString(),
-          processed_at: new Date().toISOString(),
-        })
-        .eq('id', depositId)
-        .select('*')
-        .single();
-
-      if (updateError) throw makeError(updateError.message);
-
-      return { data: { ok: true, deposit: mapDeposit(updated) } };
-    }
+  return {
+    data: {
+      ok: true,
+      deposit: mapDeposit(data),
+    },
+  };
+}
 
     const rejectMatch = url.match(/^\/api\/admin\/deposits\/([^/]+)\/reject$/);
 
