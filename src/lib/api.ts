@@ -371,7 +371,8 @@ export const api = {
           status: 'Pending',
           transfer_confirmed: false,
         })
-        .select('*');
+        .select('*')
+.single();
 
       if (error) throw makeError(error.message);
       return { data: { deposit: mapDeposit(data) } };
@@ -462,17 +463,29 @@ export const api = {
       const currentBalance = await getBalance(profile.id);
       const newBalance = currentBalance + amount;
 
-      const { error: walletError } = await supabase
-        .from('wallets')
-        .update({
-          balance: newBalance,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', profile.id);
+      const { data: updatedWallet, error: walletError } = await supabase
+  .from('wallets')
+  .update({
+    balance: newBalance,
+    updated_at: new Date().toISOString(),
+  })
+  .eq('user_id', profile.id)
+  .select('user_id, balance')
+  .single();
 
-      if (walletError) throw makeError(walletError.message);
+if (walletError) {
+  throw makeError(walletError.message);
+}
 
-      return { data: { balance: newBalance } };
+if (!updatedWallet) {
+  throw makeError('Customer wallet could not be updated.');
+}
+
+return {
+  data: {
+    balance: Number(updatedWallet.balance),
+  },
+};
     }
 
     throw makeError(`Unknown POST route: ${url}`, 404);
