@@ -435,61 +435,43 @@ return {
     balance: Number(newBalance),
   },
 };
-    }
+   if (url === '/api/admin/funds') {
+  if (!isAdmin(user.email)) {
+    throw makeError('Admin access required', 403);
+  }
 
-    if (url === '/api/admin/funds') {
-      if (!isAdmin(user.email)) {
-        throw makeError('Admin access required', 403);
-      }
+  const email = String(body.email || '').trim().toLowerCase();
+  const amount = Number(body.amount);
 
-      const email = String(body.email || '').trim().toLowerCase();
-      const amount = Number(body.amount);
+  if (!email || !Number.isFinite(amount) || amount <= 0) {
+    throw makeError('Enter a valid customer email and amount.');
+  }
 
-      if (!email || !Number.isFinite(amount) || amount <= 0) {
-        throw makeError('Enter a valid customer email and amount.');
-      }
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
+  if (profileError) throw makeError(profileError.message);
+  if (!profile) throw makeError('Customer account not found.');
 
-      if (profileError) throw makeError(profileError.message);
-      if (!profile) throw makeError('Customer account not found.');
+  const { data: newBalance, error: walletError } =
+    await supabase.rpc('admin_add_funds', {
+      target_user_id: profile.id,
+      amount_to_add: amount,
+    });
 
-      const currentBalance = await getBalance(profile.id);
-      const newBalance = currentBalance + amount;
+  if (walletError) {
+    throw makeError(walletError.message);
+  }
 
-      const { data: updatedWallet, error: walletError } = await supabase
-  .from('wallets')
-  .upsert(
-    {
-      user_id: profile.id,
-      balance: newBalance,
-      updated_at: new Date().toISOString(),
+  return {
+    data: {
+      balance: Number(newBalance),
     },
-    {
-      onConflict: 'user_id',
-    }
-  )
-  .select('user_id, balance')
-  .single();
-
-if (walletError) {
-  throw makeError(walletError.message);
-}
-
-if (!updatedWallet) {
-  throw makeError('Customer wallet could not be created or updated.');
-}
-
-return {
-  data: {
-    balance: Number(updatedWallet.balance),
-  },
-};
-    }
+  };
+   }
 
     throw makeError(`Unknown POST route: ${url}`, 404);
   },
