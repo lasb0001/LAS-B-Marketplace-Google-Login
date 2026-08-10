@@ -266,26 +266,68 @@ export const api = {
   }
 
   if (url === '/api/orders') {
-    let query = supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200);
+  const amount = Number(body.amount);
 
-    if (!isAdmin(user.email)) {
-      query = query.eq('user_id', user.id);
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw makeError(error.message);
-
-    return {
-      data: {
-        orders: (data || []).map(mapOrder),
-      },
-    };
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw makeError('Invalid order amount.');
   }
+
+  const balance = await getBalance(user.id);
+
+  if (amount > balance) {
+    throw makeError('Insufficient balance.', 402);
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .insert({
+      user_id: user.id,
+      service_name: body.product || 'Marketplace Order',
+      description: body.details || '',
+      amount,
+      status: 'Pending',
+      refunded: false,
+    })
+    .select('*')
+    .single();
+
+  if (orderError) {
+    throw makeError(orderError.message);
+  }
+
+  if (!order) {
+    throw makeError('Order was created but could not be read back.');
+  }
+
+  const newBalance = balance - amount;
+
+  const { error: walletError } = await supabase
+    .from('wallets')
+    .update({
+      balance: newBalance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id);
+
+  if (walletError) {
+    // Roll back the order if the wallet could not be charged.
+    await supabase
+      .from('orders')
+      .delete()
+      .eq('id', order.id);
+
+    throw makeError(walletError.message);
+  }
+
+  return {
+    data: {
+      id: order.id,
+      status: order.status,
+      chargedAmount: amount,
+      balance: newBalance,
+    },
+  };
+            }
 
   if (url === '/api/admin/deposits') {
     if (!isAdmin(user.email)) {
