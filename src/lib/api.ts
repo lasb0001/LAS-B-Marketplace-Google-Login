@@ -418,25 +418,23 @@ export const api = {
 
       const newBalance = balance - amount;
 
-      const { error: walletError } = await supabase
-        .from('wallets')
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
+      const { data: newBalance, error: walletError } = await supabase.rpc(
+  'admin_add_funds',
+  {
+    target_user_id: profile.id,
+    amount_to_add: amount,
+  }
+);
 
-      if (walletError) {
-        // Best-effort rollback if the wallet update fails.
-        await supabase.from('orders').delete().eq('id', order.id);
-        throw makeError(walletError.message);
-      }
+if (walletError) {
+  throw makeError(walletError.message);
+}
 
-      return {
-        data: {
-          id: order.id,
-          status: order.status,
-          chargedAmount: amount,
-          balance: newBalance,
-        },
-      };
+return {
+  data: {
+    balance: Number(newBalance),
+  },
+};
     }
 
     if (url === '/api/admin/funds') {
