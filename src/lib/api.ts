@@ -364,8 +364,7 @@ export const api = {
           status: 'Pending',
           refunded: false,
         })
-        .select('*')
-        .single();
+        .select('*');
 
       if (orderError) throw makeError(orderError.message);
 
