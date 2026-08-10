@@ -249,16 +249,37 @@ export const api = {
     }
 
     if (url === '/api/deposits') {
-      const { data, error } = await supabase
-        .from('deposits')
-        .select('*, profiles(full_name,email)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
 
-      if (error) throw makeError(error.message);
-      return { data: { deposits: (data || []).map(mapDeposit) } };
-    }
+      const { data, error } = await supabase
+  .from('deposits')
+  .insert({
+    user_id: user.id,
+    amount,
+    payment_method: body.method || 'Bank Transfer - Naira',
+    status: 'Pending',
+    transfer_confirmed: false,
+    customer_name:
+      profile?.full_name ||
+      user.user_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'Customer',
+    customer_email: profile?.email || user.email || '',
+  })
+  .select('*');
+
+if (error) throw makeError(error.message);
+
+const row = Array.isArray(data) ? data[0] : data;
+
+if (!row) {
+  throw makeError('Deposit was created but could not be read back.');
+}
+
+return {
+  data: {
+    deposit: mapDeposit(row),
+  },
+};
 
     if (url === '/api/orders') {
       let query = supabase
