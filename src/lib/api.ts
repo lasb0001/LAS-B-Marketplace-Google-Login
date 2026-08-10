@@ -241,83 +241,74 @@ export const auth = {
 
 export const api = {
   async get(url: string) {
-    const user = await currentUser();
+  const user = await currentUser();
 
-    if (url === '/api/wallet') {
-      await ensureProfile();
-      return { data: { balance: await getBalance(user.id) } };
+  if (url === '/api/wallet') {
+    await ensureProfile();
+    return { data: { balance: await getBalance(user.id) } };
+  }
+
+  if (url === '/api/deposits') {
+    const { data, error } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw makeError(error.message);
+
+    return {
+      data: {
+        deposits: (data || []).map(mapDeposit),
+      },
+    };
+  }
+
+  if (url === '/api/orders') {
+    let query = supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (!isAdmin(user.email)) {
+      query = query.eq('user_id', user.id);
     }
 
-    if (url === '/api/deposits') {
+    const { data, error } = await query;
 
-      const { data, error } = await supabase
-  .from('deposits')
-  .insert({
-    user_id: user.id,
-    amount,
-    payment_method: body.method || 'Bank Transfer - Naira',
-    status: 'Pending',
-    transfer_confirmed: false,
-    customer_name:
-      profile?.full_name ||
-      user.user_metadata?.full_name ||
-      user.email?.split('@')[0] ||
-      'Customer',
-    customer_email: profile?.email || user.email || '',
-  })
-  .select('*');
+    if (error) throw makeError(error.message);
 
-if (error) throw makeError(error.message);
+    return {
+      data: {
+        orders: (data || []).map(mapOrder),
+      },
+    };
+  }
 
-const row = Array.isArray(data) ? data[0] : data;
-
-if (!row) {
-  throw makeError('Deposit was created but could not be read back.');
-}
-
-return {
-  data: {
-    deposit: mapDeposit(row),
-  },
-};
-
-    if (url === '/api/orders') {
-      let query = supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (!isAdmin(user.email)) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw makeError(error.message);
-      return { data: { orders: (data || []).map(mapOrder) } };
+  if (url === '/api/admin/deposits') {
+    if (!isAdmin(user.email)) {
+      throw makeError('Admin access required', 403);
     }
 
-    if (url === '/api/admin/deposits') {
-      if (!isAdmin(user.email)) {
-        throw makeError('Admin access required', 403);
-      }
+    const { data, error } = await supabase
+      .from('deposits')
+      .select('*, profiles(full_name,email)')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-      const { data, error } = await supabase
-        .from('deposits')
-        .select('*, profiles(full_name,email)')
-        .order('created_at', { ascending: false })
-        .limit(200);
+    if (error) throw makeError(error.message);
 
-      if (error) throw makeError(error.message);
-      return {
-  data: {
-    deposits: (data || []).map(mapDeposit),
-  },
-};
+    return {
+      data: {
+        deposits: (data || []).map(mapDeposit),
+      },
+    };
+  }
 
-    throw makeError(`Unknown GET route: ${url}`, 404);
-  },
+  throw makeError(`Unknown GET route: ${url}`, 404);
+},
 
   async post(url: string, body: any = {}) {
     const user = await currentUser();
