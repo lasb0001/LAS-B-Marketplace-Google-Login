@@ -329,56 +329,55 @@ export const api = {
       };
     }
 
-    if (url === '/api/admin/funds') {
-      if (!isAdmin(user.email)) {
-        throw makeError('Admin access required', 403);
-      }
+    async post(url: string, body: any = {}) {
+  const user = await currentUser();
 
-      const email = String(body.email || '').trim().toLowerCase();
-      const amount = Number(body.amount);
-
-      if (!email || !Number.isFinite(amount) || amount <= 0) {
-        throw makeError('Enter a valid customer email and amount.');
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (profileError) {
-        throw makeError(profileError.message);
-      }
-
-      if (!profile) {
-        throw makeError('Customer account not found.');
-      }
-
-      const { data: newBalance, error: walletError } =
-        await supabase.rpc('admin_add_funds', {
-          target_user_id: profile.id,
-          amount_to_add: amount,
-        });
-
-      if (walletError) {
-        throw makeError(walletError.message);
-      }
-
-      return {
-        data: {
-          balance: Number(newBalance),
-        },
-      };
+  if (url === '/api/admin/funds') {
+    if (!isAdmin(user.email)) {
+      throw makeError('Admin access required', 403);
     }
 
-    throw makeError(`Unknown POST route: ${url}`, 404);
-  async post(url: string, body: any = {}) {
-    const user = await currentUser();
+    const email = String(body.email || '').trim().toLowerCase();
+    const amount = Number(body.amount);
 
-    if (url === '/api/deposits') {
-      const amount = Number(body.amount);
+    if (!email || !Number.isFinite(amount) || amount <= 0) {
+      throw makeError('Enter a valid customer email and amount.');
+    }
 
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (profileError) {
+      throw makeError(profileError.message);
+    }
+
+    if (!profile) {
+      throw makeError('Customer account not found.');
+    }
+
+    const { data: newBalance, error: walletError } =
+      await supabase.rpc('admin_add_funds', {
+        target_user_id: profile.id,
+        amount_to_add: amount,
+      });
+
+    if (walletError) {
+      throw makeError(walletError.message);
+    }
+
+    return {
+      data: {
+        balance: Number(newBalance),
+      },
+    };
+  }
+
+  if (url === '/api/deposits') {
+    const amount = Number(body.amount);
+      
       if (!Number.isFinite(amount) || amount <= 0) {
         throw makeError('Enter a valid deposit amount.');
       }
