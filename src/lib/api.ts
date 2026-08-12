@@ -435,23 +435,6 @@ export const api = {
 
       const newBalance = balance - amount;
 
-      const { data: newBalance, error: walletError } = await supabase.rpc(
-  'admin_add_funds',
-  {
-    target_user_id: profile.id,
-    amount_to_add: amount,
-  }
-);
-
-if (walletError) {
-  throw makeError(walletError.message);
-}
-
-return {
-  data: {
-    balance: Number(newBalance),
-  },
-};
    if (url === '/api/admin/funds') {
   if (!isAdmin(user.email)) {
     throw makeError('Admin access required', 403);
@@ -470,8 +453,13 @@ return {
     .eq('email', email)
     .maybeSingle();
 
-  if (profileError) throw makeError(profileError.message);
-  if (!profile) throw makeError('Customer account not found.');
+  if (profileError) {
+    throw makeError(profileError.message);
+  }
+
+  if (!profile) {
+    throw makeError('Customer account not found.');
+  }
 
   const { data: newBalance, error: walletError } =
     await supabase.rpc('admin_add_funds', {
@@ -489,7 +477,6 @@ return {
     },
   };
    }
-
     throw makeError(`Unknown POST route: ${url}`, 404);
   },
 
