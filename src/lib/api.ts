@@ -299,59 +299,80 @@ export const api = {
     throw makeError('Order was created but could not be read back.');
   }
 
-  const newBalance = balance - amount;
+        const newBalance = balance - amount;
 
-  const { error: walletError } = await supabase
-    .from('wallets')
-    .update({
-      balance: newBalance,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', user.id);
+      const { error: walletError } = await supabase
+        .from('wallets')
+        .update({
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
 
-  if (walletError) {
-    // Roll back the order if the wallet could not be charged.
-    await supabase
-      .from('orders')
-      .delete()
-      .eq('id', order.id);
+      if (walletError) {
+        throw makeError(walletError.message);
+      }
 
-    throw makeError(walletError.message);
-  }
+      await supabase.from('transactions').insert({
+        user_id: user.id,
+        type: 'order_payment',
+        amount,
+        description: `Payment for ${body.product || 'Marketplace Order'}`,
+        reference_id: row.id,
+      });
 
-  return {
-    data: {
-      id: order.id,
-      status: order.status,
-      chargedAmount: amount,
-      balance: newBalance,
-    },
-  };
-            }
-
-  if (url === '/api/admin/deposits') {
-    if (!isAdmin(user.email)) {
-      throw makeError('Admin access required', 403);
+      return {
+        data: {
+          order: mapOrder(row),
+          balance: Number(newBalance),
+        },
+      };
     }
 
-    const { data, error } = await supabase
-      .from('deposits')
-      .select('*, profiles(full_name,email)')
-      .order('created_at', { ascending: false })
-      .limit(200);
+    if (url === '/api/admin/funds') {
+      if (!isAdmin(user.email)) {
+        throw makeError('Admin access required', 403);
+      }
 
-    if (error) throw makeError(error.message);
+      const email = String(body.email || '').trim().toLowerCase();
+      const amount = Number(body.amount);
 
-    return {
-      data: {
-        deposits: (data || []).map(mapDeposit),
-      },
-    };
-  }
+      if (!email || !Number.isFinite(amount) || amount <= 0) {
+        throw makeError('Enter a valid customer email and amount.');
+      }
 
-  throw makeError(`Unknown GET route: ${url}`, 404);
-},
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
 
+      if (profileError) {
+        throw makeError(profileError.message);
+      }
+
+      if (!profile) {
+        throw makeError('Customer account not found.');
+      }
+
+      const { data: newBalance, error: walletError } =
+        await supabase.rpc('admin_add_funds', {
+          target_user_id: profile.id,
+          amount_to_add: amount,
+        });
+
+      if (walletError) {
+        throw makeError(walletError.message);
+      }
+
+      return {
+        data: {
+          balance: Number(newBalance),
+        },
+      };
+    }
+
+    throw makeError(`Unknown POST route: ${url}`, 404);
   async post(url: string, body: any = {}) {
     const user = await currentUser();
 
