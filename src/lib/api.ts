@@ -329,9 +329,6 @@ export const api = {
       };
     }
 
-    async post(url: string, body: any = {}) {
-  const user = await currentUser();
-
   if (url === '/api/admin/funds') {
     if (!isAdmin(user.email)) {
       throw makeError('Admin access required', 403);
